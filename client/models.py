@@ -1,28 +1,34 @@
 from django.db import models
 
+
 class Client(models.Model):
     name = models.CharField(max_length=100)
+
     # Add other client-related fields here
 
     def __str__(self):
         return self.name
 
+
 class House(models.Model):
     client = models.ForeignKey(Client, related_name='houses', on_delete=models.CASCADE)
     address = models.CharField(max_length=200)
+
     # Add other house-related fields here
 
     def __str__(self):
         return self.address
 
+
 class UnityOfConsumption(models.Model):
-    house = models.OneToOneField(House, on_delete=models.CASCADE, related_name='uc')
+    house = models.OneToOneField('House', on_delete=models.CASCADE, related_name='uc')
     energy_consumed = models.FloatField(default=0)
     energy_generated = models.FloatField(default=0)
-    energy_credit = models.FloatField(default=0)  # Surplus energy credit, if applicable
+    energy_credit = models.FloatField(default=0)  # Surplus energy credit
     energy_rate = models.FloatField(default=0.10)  # Rate per unit
     is_generator = models.BooleanField(default=False)
     is_beneficiary = models.BooleanField(default=False)
+    energy_suppliers = models.ManyToManyField('self', symmetrical=False, related_name='energy_recipients', blank=True)
 
     def calculate_bill(self):
         # Calculate bill based on energy consumed and credit
@@ -40,6 +46,16 @@ class UnityOfConsumption(models.Model):
             # If it is a beneficiary, it can use the credit (if available)
             self.energy_credit = max(self.energy_credit + surplus_energy * self.energy_rate, 0)
 
+    def add_energy_supplier(self, supplier_uc):
+        """ Adds another UC as an energy supplier. """
+        if supplier_uc.is_generator and not supplier_uc == self:
+            self.energy_suppliers.add(supplier_uc)
+
+    def add_energy_recipient(self, recipient_uc):
+        """ Adds another UC as an energy recipient. """
+        if recipient_uc.is_beneficiary and not recipient_uc == self:
+            self.energy_recipients.add(recipient_uc)
+
     def save(self, *args, **kwargs):
         # Call handle_surplus_energy before saving
         self.handle_surplus_energy()
@@ -48,9 +64,11 @@ class UnityOfConsumption(models.Model):
     def __str__(self):
         return f"UC for {self.house} | Generator: {self.is_generator} | Beneficiary: {self.is_beneficiary}"
 
+
 class SolarEnergySystem(models.Model):
     uc = models.OneToOneField(UnityOfConsumption, on_delete=models.CASCADE, related_name='solar_system')
     production = models.FloatField()
+
     # Add other solar energy system-related fields here
 
     def save(self, *args, **kwargs):
