@@ -56,6 +56,10 @@ class UnityOfConsumption(models.Model):
         if recipient_uc.is_beneficiary and not recipient_uc == self:
             self.energy_recipients.add(recipient_uc)
 
+    def get_energy_supplier_addresses(self):
+        """ Retrieve the addresses of all energy suppliers. """
+        return [supplier.house.address for supplier in self.energy_suppliers.all()]
+
     def save(self, *args, **kwargs):
         # Call handle_surplus_energy before saving
         self.handle_surplus_energy()
